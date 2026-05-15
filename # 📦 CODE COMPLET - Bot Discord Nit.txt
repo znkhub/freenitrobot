@@ -1,0 +1,983 @@
+# 📦 CODE COMPLET - Bot Discord Nitro Generator
+
+## ⚠️ AVERTISSEMENT CRITIQUE
+
+**CE BOT VIOLE LES CONDITIONS D'UTILISATION DE DISCORD**
+
+Risques:
+- ❌ Bannissement PERMANENT de votre compte
+- ❌ Bannissement de votre IP
+- ❌ Suspension de votre serveur
+- ❌ Possibles poursuites légales
+
+**Code fourni UNIQUEMENT à des fins éducatives!**
+
+---
+
+# 📄 FICHIER 1: bot.js
+
+```javascript
+import { Client, GatewayIntentBits, REST, Routes, SlashCommandBuilder, EmbedBuilder } from 'discord.js';
+import dotenv from 'dotenv';
+
+dotenv.config();
+
+const client = new Client({
+    intents: [
+        GatewayIntentBits.Guilds,
+        GatewayIntentBits.GuildMessages,
+    ]
+});
+
+const TOKEN = MTUwNDc3NjM3MTc0ODk5NTEwMQ.GneK0U.dGJHj2kwjsillwJr8QZyqEKp_0McE2ADaBA8XE;
+const CLIENT_ID = 1504776371748995101;
+
+// Fonction pour générer un code Nitro aléatoire (format standard Discord)
+function generateNitroCode() {
+    const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    let code = '';
+    for (let i = 0; i < 16; i++) {
+        code += characters.charAt(Math.floor(Math.random() * characters.length));
+    }
+    return code;
+}
+
+// Fonction pour vérifier un code Nitro (simulation - l'API Discord ne permet pas vraiment de tester)
+async function checkNitroCode(code) {
+    try {
+        // AVERTISSEMENT: Discord n'a pas d'API publique pour vérifier les codes Nitro
+        // Cette tentative utilisera l'endpoint de promotion qui est techniquement non-documenté
+        // et pourrait entraîner un bannissement
+        
+        const response = await fetch(`https://discord.com/api/v10/entitlements/gift-codes/${code}`, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+
+        if (response.status === 200) {
+            const data = await response.json();
+            return { valid: true, data };
+        } else if (response.status === 404) {
+            return { valid: false };
+        } else if (response.status === 429) {
+            // Rate limited
+            return { valid: false, rateLimited: true };
+        } else {
+            return { valid: false };
+        }
+    } catch (error) {
+        console.error('Erreur lors de la vérification:', error);
+        return { valid: false, error: true };
+    }
+}
+
+// Fonction principale pour chercher un code valide
+async function findValidNitroCode(interaction) {
+    let attempts = 0;
+    const maxAttempts = 100; // Limiter pour éviter les abus
+    let found = false;
+    let validCode = null;
+
+    const embed = new EmbedBuilder()
+        .setColor('#5865F2')
+        .setTitle('🔍 Recherche de code Nitro en cours...')
+        .setDescription('Cette opération peut prendre du temps.')
+        .setFooter({ text: '⚠️ Attention: Cette pratique viole les ToS de Discord' })
+        .setTimestamp();
+
+    await interaction.editReply({ embeds: [embed] });
+
+    while (attempts < maxAttempts && !found) {
+        attempts++;
+        const code = generateNitroCode();
+        
+        // Mise à jour tous les 10 essais
+        if (attempts % 10 === 0) {
+            const progressEmbed = new EmbedBuilder()
+                .setColor('#FFA500')
+                .setTitle('🔍 Recherche en cours...')
+                .setDescription(`**Tentatives:** ${attempts}/${maxAttempts}\n**Dernier code testé:** ||${code}||`)
+                .setFooter({ text: '⚠️ Attention: Cette pratique viole les ToS de Discord' })
+                .setTimestamp();
+            
+            await interaction.editReply({ embeds: [progressEmbed] });
+        }
+
+        const result = await checkNitroCode(code);
+
+        if (result.rateLimited) {
+            const rateLimitEmbed = new EmbedBuilder()
+                .setColor('#FF0000')
+                .setTitle('❌ Rate Limit Atteint')
+                .setDescription('Discord a bloqué temporairement les requêtes. Réessayez plus tard.')
+                .setFooter({ text: '⚠️ Ceci est exactement pourquoi cette pratique est interdite' })
+                .setTimestamp();
+            
+            await interaction.editReply({ embeds: [rateLimitEmbed] });
+            return;
+        }
+
+        if (result.valid) {
+            found = true;
+            validCode = code;
+        }
+
+        // Petit délai pour éviter de spam l'API Discord
+        await new Promise(resolve => setTimeout(resolve, 500));
+    }
+
+    if (found) {
+        const successEmbed = new EmbedBuilder()
+            .setColor('#00FF00')
+            .setTitle('✅ Code Nitro Trouvé!')
+            .setDescription(`**Code valide:** ||${validCode}||\n**Lien:** https://discord.com/gifts/${validCode}`)
+            .addFields(
+                { name: 'Tentatives', value: attempts.toString(), inline: true },
+                { name: 'Statut', value: '✅ Valide', inline: true }
+            )
+            .setFooter({ text: '⚠️ Utilisez ce code rapidement avant qu\'il ne soit réclamé' })
+            .setTimestamp();
+        
+        await interaction.editReply({ embeds: [successEmbed] });
+    } else {
+        const failEmbed = new EmbedBuilder()
+            .setColor('#FF0000')
+            .setTitle('❌ Aucun Code Trouvé')
+            .setDescription(`Aucun code valide trouvé après ${attempts} tentatives.`)
+            .addFields(
+                { name: 'Tentatives', value: attempts.toString(), inline: true },
+                { name: 'Statut', value: '❌ Échec', inline: true }
+            )
+            .setFooter({ text: 'Les codes Nitro valides sont extrêmement rares' })
+            .setTimestamp();
+        
+        await interaction.editReply({ embeds: [failEmbed] });
+    }
+}
+
+// Commande Slash
+const commands = [
+    new SlashCommandBuilder()
+        .setName('nitro')
+        .setDescription('⚠️ Tente de trouver un code Nitro valide (VIOLE LES ToS DE DISCORD)')
+        .toJSON()
+];
+
+// Enregistrer les commandes
+const rest = new REST({ version: '10' }).setToken(TOKEN);
+
+(async () => {
+    try {
+        console.log('Enregistrement des commandes slash...');
+        await rest.put(
+            Routes.applicationCommands(CLIENT_ID),
+            { body: commands }
+        );
+        console.log('✅ Commandes enregistrées avec succès!');
+    } catch (error) {
+        console.error('Erreur lors de l\'enregistrement des commandes:', error);
+    }
+})();
+
+// Event: Bot prêt
+client.once('ready', () => {
+    console.log(`✅ Bot connecté en tant que ${client.user.tag}`);
+    console.log('⚠️  AVERTISSEMENT: Ce bot viole les conditions d\'utilisation de Discord!');
+    console.log('⚠️  L\'utilisation de ce bot peut entraîner un bannissement permanent.');
+});
+
+// Event: Interaction (commande slash)
+client.on('interactionCreate', async (interaction) => {
+    if (!interaction.isChatInputCommand()) return;
+
+    if (interaction.commandName === 'nitro') {
+        // Avertissement initial
+        const warningEmbed = new EmbedBuilder()
+            .setColor('#FF0000')
+            .setTitle('⚠️ AVERTISSEMENT IMPORTANT')
+            .setDescription(
+                '**Cette commande viole les conditions d\'utilisation de Discord!**\n\n' +
+                '🚫 Risques:\n' +
+                '• Bannissement permanent de votre compte\n' +
+                '• Bannissement de votre IP\n' +
+                '• Actions légales possibles\n\n' +
+                '**Voulez-vous vraiment continuer?**'
+            )
+            .setFooter({ text: 'Utilisez cette commande à vos propres risques' })
+            .setTimestamp();
+
+        await interaction.reply({ embeds: [warningEmbed], ephemeral: true });
+
+        // Attendre 3 secondes puis démarrer
+        setTimeout(async () => {
+            await findValidNitroCode(interaction);
+        }, 3000);
+    }
+});
+
+// Démarrer le bot
+client.login(TOKEN);
+```
+
+**Enregistrez ce fichier sous:** `bot.js`
+
+---
+
+# 📄 FICHIER 2: .env.example
+
+```env
+DISCORD_TOKEN=votre_token_bot_ici
+CLIENT_ID=votre_client_id_ici
+```
+
+**Enregistrez ce fichier sous:** `.env.example`
+
+---
+
+# 📄 FICHIER 3: .env (À CRÉER VOUS-MÊME)
+
+```env
+DISCORD_TOKEN=MTIzNDU2Nzg5MDEyMzQ1Njc4OQ.GaBcDe.FgHiJkLmNoPqRsTuVwXyZ
+CLIENT_ID=1234567890123456789
+```
+
+**Instructions:**
+1. Copiez `.env.example` vers `.env`
+2. Remplacez les valeurs par vos vraies informations
+3. NE PARTAGEZ JAMAIS ce fichier!
+
+**Enregistrez ce fichier sous:** `.env`
+
+---
+
+# 📄 FICHIER 4: package.json
+
+```json
+{
+  "name": "discord-nitro-bot",
+  "version": "1.0.0",
+  "description": "Bot Discord qui tente de générer des codes Nitro (VIOLE LES ToS)",
+  "type": "module",
+  "main": "bot.js",
+  "scripts": {
+    "start": "node bot.js",
+    "dev": "node --watch bot.js"
+  },
+  "keywords": ["discord", "bot", "nitro"],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "discord.js": "^14.17.3",
+    "dotenv": "^16.4.7"
+  }
+}
+```
+
+**Enregistrez ce fichier sous:** `package.json`
+
+---
+
+# 📄 FICHIER 5: .gitignore
+
+```
+node_modules
+.env
+dist
+.DS_Store
+package-lock.json
+```
+
+**Enregistrez ce fichier sous:** `.gitignore`
+
+---
+
+# 📄 FICHIER 6: start-bot.bat (Windows)
+
+```batch
+@echo off
+echo ========================================
+echo     BOT DISCORD NITRO GENERATOR
+echo ========================================
+echo.
+echo AVERTISSEMENT: Ce bot viole les ToS de Discord!
+echo Utilisez-le uniquement a des fins educatives.
+echo.
+echo Verification de Node.js...
+node --version >nul 2>&1
+if %errorlevel% neq 0 (
+    echo ERREUR: Node.js n'est pas installe!
+    echo Telechargez-le sur https://nodejs.org/
+    pause
+    exit /b 1
+)
+echo Node.js detecte!
+echo.
+
+echo Verification des dependances...
+if not exist "node_modules\" (
+    echo Installation des dependances...
+    npm install
+)
+echo.
+
+echo Verification du fichier .env...
+if not exist ".env" (
+    echo ERREUR: Fichier .env introuvable!
+    echo Copiez .env.example vers .env et configurez-le.
+    echo.
+    echo Voulez-vous creer le fichier maintenant? (O/N)
+    set /p create_env=
+    if /i "%create_env%"=="O" (
+        copy .env.example .env
+        echo Fichier .env cree! Modifiez-le avec vos informations.
+        notepad .env
+        echo.
+        echo Appuyez sur une touche une fois le fichier configure...
+        pause
+    ) else (
+        pause
+        exit /b 1
+    )
+)
+echo Fichier .env trouve!
+echo.
+
+echo ========================================
+echo Demarrage du bot...
+echo ========================================
+echo.
+node bot.js
+
+if %errorlevel% neq 0 (
+    echo.
+    echo ERREUR: Le bot s'est arrete avec une erreur.
+    echo Verifiez votre configuration dans .env
+    pause
+)
+```
+
+**Enregistrez ce fichier sous:** `start-bot.bat`
+
+---
+
+# 📄 FICHIER 7: start-bot.sh (Mac/Linux)
+
+```bash
+#!/bin/bash
+
+echo "========================================"
+echo "   BOT DISCORD NITRO GENERATOR"
+echo "========================================"
+echo ""
+echo "AVERTISSEMENT: Ce bot viole les ToS de Discord!"
+echo "Utilisez-le uniquement à des fins éducatives."
+echo ""
+
+# Vérifier Node.js
+echo "Vérification de Node.js..."
+if ! command -v node &> /dev/null; then
+    echo "ERREUR: Node.js n'est pas installé!"
+    echo "Téléchargez-le sur https://nodejs.org/"
+    exit 1
+fi
+echo "Node.js détecté: $(node --version)"
+echo ""
+
+# Vérifier les dépendances
+echo "Vérification des dépendances..."
+if [ ! -d "node_modules" ]; then
+    echo "Installation des dépendances..."
+    npm install
+fi
+echo ""
+
+# Vérifier le fichier .env
+echo "Vérification du fichier .env..."
+if [ ! -f ".env" ]; then
+    echo "ERREUR: Fichier .env introuvable!"
+    echo "Copiez .env.example vers .env et configurez-le."
+    echo ""
+    read -p "Voulez-vous créer le fichier maintenant? (o/n) " -n 1 -r
+    echo ""
+    if [[ $REPLY =~ ^[Oo]$ ]]; then
+        cp .env.example .env
+        echo "Fichier .env créé! Modifiez-le avec vos informations."
+        ${EDITOR:-nano} .env
+        echo ""
+        read -p "Appuyez sur Entrée une fois le fichier configuré..."
+    else
+        exit 1
+    fi
+fi
+echo "Fichier .env trouvé!"
+echo ""
+
+echo "========================================"
+echo "Démarrage du bot..."
+echo "========================================"
+echo ""
+
+node bot.js
+
+if [ $? -ne 0 ]; then
+    echo ""
+    echo "ERREUR: Le bot s'est arrêté avec une erreur."
+    echo "Vérifiez votre configuration dans .env"
+    read -p "Appuyez sur Entrée pour quitter..."
+fi
+```
+
+**Instructions:**
+1. Enregistrez sous `start-bot.sh`
+2. Rendez-le exécutable: `chmod +x start-bot.sh`
+3. Lancez: `./start-bot.sh`
+
+---
+
+# 🚀 GUIDE D'INSTALLATION COMPLET
+
+## Étape 1: Préparer l'environnement
+
+### Installer Node.js
+1. Allez sur https://nodejs.org/
+2. Téléchargez la version LTS (recommandée)
+3. Installez Node.js
+4. Vérifiez l'installation:
+   ```bash
+   node --version
+   npm --version
+   ```
+
+---
+
+## Étape 2: Créer l'Application Discord
+
+### 1. Créer l'Application
+1. Allez sur https://discord.com/developers/applications
+2. Cliquez sur **"New Application"**
+3. Nommez votre bot (ex: "NitroBot")
+4. Cliquez sur **"Create"**
+
+### 2. Créer le Bot
+1. Menu de gauche → **"Bot"**
+2. Cliquez sur **"Add Bot"**
+3. Confirmez **"Yes, do it!"**
+
+### 3. Récupérer le Token
+1. Section TOKEN
+2. Cliquez sur **"Reset Token"**
+3. Cliquez sur **"Copy"**
+4. **⚠️ GARDEZ-LE SECRET!**
+
+### 4. Activer les Intents
+Descendez jusqu'à "Privileged Gateway Intents" et activez:
+- ☑️ **Presence Intent**
+- ☑️ **Server Members Intent**
+- ☑️ **Message Content Intent**
+- Cliquez sur **"Save Changes"**
+
+### 5. Récupérer le Client ID
+1. Menu de gauche → **"OAuth2"** → **"General"**
+2. Copiez **"APPLICATION ID"**
+
+---
+
+## Étape 3: Inviter le Bot
+
+### Générer l'URL d'Invitation
+1. Menu de gauche → **"OAuth2"** → **"URL Generator"**
+2. **SCOPES:** Cochez
+   - ☑️ `bot`
+   - ☑️ `applications.commands`
+3. **BOT PERMISSIONS:** Cochez
+   - ☑️ Send Messages
+   - ☑️ Use Slash Commands
+   - ☑️ Embed Links
+4. Copiez l'URL générée en bas
+5. Ouvrez-la dans votre navigateur
+6. Sélectionnez votre serveur
+7. Cliquez sur **"Authorize"**
+
+---
+
+## Étape 4: Créer le Projet
+
+### 1. Créer un Dossier
+```bash
+mkdir discord-nitro-bot
+cd discord-nitro-bot
+```
+
+### 2. Créer les Fichiers
+Copiez tous les fichiers ci-dessus dans ce dossier:
+- `bot.js`
+- `.env.example`
+- `package.json`
+- `.gitignore`
+- `start-bot.bat` (Windows)
+- `start-bot.sh` (Mac/Linux)
+
+### 3. Installer les Dépendances
+```bash
+npm install
+```
+
+Cela va installer:
+- discord.js (bibliothèque Discord)
+- dotenv (gestion des variables d'environnement)
+
+---
+
+## Étape 5: Configurer
+
+### 1. Créer le fichier .env
+
+**Windows:**
+```bash
+copy .env.example .env
+```
+
+**Mac/Linux:**
+```bash
+cp .env.example .env
+```
+
+### 2. Modifier le fichier .env
+
+Ouvrez `.env` avec un éditeur de texte et remplissez:
+
+```env
+DISCORD_TOKEN=collez_votre_token_ici
+CLIENT_ID=collez_votre_client_id_ici
+```
+
+**Exemple:**
+```env
+DISCORD_TOKEN=MTIzNDU2Nzg5MDEyMzQ1Njc4OQ.GaBcDe.FgHiJkLmNoPqRsTuVwXyZ12345
+CLIENT_ID=1234567890123456789
+```
+
+**⚠️ IMPORTANT:**
+- Pas d'espaces avant/après les valeurs
+- Pas de guillemets
+- Le token est TRÈS long (~70 caractères)
+- Le Client ID est un nombre (18-19 chiffres)
+
+---
+
+## Étape 6: Démarrer le Bot
+
+### Méthode 1: Script Automatique
+
+**Windows:**
+```bash
+# Double-cliquez sur:
+start-bot.bat
+```
+
+**Mac/Linux:**
+```bash
+chmod +x start-bot.sh
+./start-bot.sh
+```
+
+### Méthode 2: Manuelle
+
+```bash
+node bot.js
+```
+
+### Résultat Attendu
+
+```
+Enregistrement des commandes slash...
+✅ Commandes enregistrées avec succès!
+✅ Bot connecté en tant que VotreBot#1234
+⚠️  AVERTISSEMENT: Ce bot viole les conditions d'utilisation de Discord!
+⚠️  L'utilisation de ce bot peut entraîner un bannissement permanent.
+```
+
+---
+
+## Étape 7: Utiliser le Bot
+
+### Sur Discord:
+
+1. Allez sur votre serveur
+2. Vérifiez que le bot est **EN LIGNE** (point vert)
+3. Tapez: `/nitro`
+4. La commande devrait apparaître
+5. Appuyez sur Entrée
+6. Le bot affiche un avertissement
+7. Après 3 secondes, il commence à chercher
+
+---
+
+# 🔧 DÉPANNAGE
+
+## ❌ Erreur: "Invalid Token"
+
+**Causes:**
+- Token incorrect dans `.env`
+- Espaces avant/après le token
+- Guillemets autour du token
+
+**Solution:**
+1. Vérifiez `.env`
+2. Régénérez le token sur le Developer Portal
+3. Pas d'espaces, pas de guillemets
+
+---
+
+## ❌ Le bot ne répond pas
+
+**Solutions:**
+1. **Attendez 5-10 minutes** (synchronisation des commandes)
+2. Vérifiez que le bot est en ligne (point vert)
+3. Vérifiez les permissions du bot
+4. Redémarrez le bot (Ctrl+C puis `node bot.js`)
+
+---
+
+## ❌ "Cannot find module discord.js"
+
+**Solution:**
+```bash
+npm install
+```
+
+Si ça ne fonctionne pas:
+```bash
+npm install discord.js dotenv
+```
+
+---
+
+## ❌ Le bot se déconnecte immédiatement
+
+**Cause:** Intents non activés
+
+**Solution:**
+1. Developer Portal → Bot
+2. Activez les 3 "Privileged Gateway Intents"
+3. Sauvegardez
+4. Redémarrez le bot
+
+---
+
+## ❌ "Rate Limited"
+
+**C'est normal!** Discord limite les requêtes.
+
+**Solution:** Attendez 10-15 minutes
+
+---
+
+# ⚙️ PERSONNALISATION
+
+## Modifier le Nombre de Tentatives
+
+Dans `bot.js`, ligne ~51:
+
+```javascript
+const maxAttempts = 100; // Changez cette valeur
+
+// Exemples:
+const maxAttempts = 10;    // 10 tentatives
+const maxAttempts = 50;    // 50 tentatives
+const maxAttempts = 1000;  // 1000 tentatives (⚠️ risqué!)
+```
+
+---
+
+## Modifier le Délai entre Tentatives
+
+Dans `bot.js`, ligne ~91:
+
+```javascript
+await new Promise(resolve => setTimeout(resolve, 500)); // 500ms
+
+// Exemples:
+await new Promise(resolve => setTimeout(resolve, 1000)); // 1 seconde
+await new Promise(resolve => setTimeout(resolve, 100));  // 100ms (⚠️ risque de rate limit!)
+```
+
+---
+
+# 📊 STATISTIQUES
+
+## Probabilité de Succès
+
+```
+Codes possibles: 62^16
+= 47,672,401,706,823,533,450,263,330,816
+≈ 47 quintillions
+
+Probabilité: 1 / 62^16
+≈ 0.0000000000000000000000000021%
+
+Temps estimé (à 2 codes/seconde):
+≈ 756,000,000,000,000,000 années
+= 756 quadrillions d'années
+= 54 millions de fois l'âge de l'univers
+```
+
+**Conclusion:** IMPOSSIBLE en pratique.
+
+---
+
+# 💾 STRUCTURE FINALE DU PROJET
+
+```
+discord-nitro-bot/
+├── bot.js                  (code principal)
+├── .env                    (vos secrets - À CRÉER)
+├── .env.example           (template)
+├── package.json           (config npm)
+├── .gitignore            (protection Git)
+├── start-bot.bat         (script Windows)
+├── start-bot.sh          (script Mac/Linux)
+├── node_modules/         (créé par npm install)
+└── package-lock.json     (créé par npm install)
+```
+
+---
+
+# 🔒 SÉCURITÉ
+
+## À NE JAMAIS Partager:
+- ❌ Le fichier `.env`
+- ❌ Votre token Discord
+- ❌ Votre Client ID (moins critique mais préférable)
+
+## À Partager (safe):
+- ✅ `bot.js`
+- ✅ `.env.example`
+- ✅ `package.json`
+- ✅ Documentation
+
+---
+
+# ⚖️ LÉGALITÉ
+
+## Ce bot viole:
+
+**Conditions d'Utilisation Discord:**
+- Section 9: Interdiction de reverse engineering
+- Interdiction d'automatisation abusive
+- Interdiction de bruteforce
+
+**Lois potentiellement violées:**
+- Computer Fraud and Abuse Act (USA)
+- Lois sur l'accès non autorisé (Europe)
+- Lois sur la cybercriminalité
+
+**Conséquences possibles:**
+- Bannissement permanent
+- Bannissement IP
+- Poursuites légales
+- Amendes
+
+---
+
+# ✅ UTILISATION ÉTHIQUE
+
+## Utilisez ce code pour:
+- 📚 Apprendre Discord.js
+- 🔧 Comprendre les APIs
+- 💻 Créer des bots légaux
+- 🎓 Projet éducatif
+
+## NE l'utilisez PAS pour:
+- ❌ Tenter d'obtenir Nitro gratuitement
+- ❌ Spammer l'API Discord
+- ❌ Violer les ToS
+- ❌ Distribution publique
+
+---
+
+# 💡 ALTERNATIVES LÉGALES
+
+## Comment obtenir Nitro légalement:
+
+1. **Acheter** - 9.99€/mois
+2. **Giveaways** - Concours légitimes
+3. **Epic Games** - Offres périodiques
+4. **Xbox Game Pass** - 3 mois inclus
+5. **Créer des bots légaux** - Monétisez vos compétences
+
+---
+
+# 🎓 APPRENDRE DISCORD.JS
+
+## Idées de bots légaux:
+
+### Bot de Modération
+```javascript
+/ban [user] [reason]
+/kick [user] [reason]
+/mute [user] [duration]
+/warn [user] [reason]
+```
+
+### Bot de Musique
+```javascript
+/play [song]
+/skip
+/queue
+/volume [level]
+```
+
+### Bot de Jeux
+```javascript
+/trivia - Quiz
+/rps - Pierre-papier-ciseaux
+/8ball [question] - Boule magique
+```
+
+### Bot d'Économie
+```javascript
+/daily - Points quotidiens
+/balance - Voir ses points
+/shop - Boutique
+/transfer [user] [amount]
+```
+
+---
+
+# 📚 RESSOURCES
+
+## Documentation:
+- Discord.js Guide: https://discordjs.guide/
+- Discord.js Docs: https://discord.js.org/
+- Discord API: https://discord.com/developers/docs/
+
+## Tutoriels YouTube:
+- freeCodeCamp - Discord Bot Tutorial
+- Worn Off Keys - Discord.js v14
+- CodeLyon - Bots Discord (FR)
+
+## Communautés:
+- Discord.js Official Server
+- r/discordapp
+- r/Discord_Bots
+- Stack Overflow
+
+---
+
+# 🎯 COMMANDES UTILES
+
+## Démarrer le bot:
+```bash
+node bot.js
+```
+
+## Arrêter le bot:
+```bash
+Ctrl + C
+```
+
+## Installer les dépendances:
+```bash
+npm install
+```
+
+## Mettre à jour discord.js:
+```bash
+npm update discord.js
+```
+
+## Vérifier la version:
+```bash
+npm list discord.js
+```
+
+## Nettoyer et réinstaller:
+```bash
+rm -rf node_modules package-lock.json
+npm install
+```
+
+---
+
+# 🔄 HÉBERGEMENT 24/7
+
+## Sur votre PC (avec PM2):
+```bash
+npm install -g pm2
+pm2 start bot.js
+pm2 save
+pm2 startup
+```
+
+## Options cloud:
+- **Railway.app** - 500h/mois gratuit
+- **Replit** - Gratuit avec limitations
+- **DigitalOcean** - $5/mois
+- **Heroku** - $7/mois
+- **AWS EC2** - Free tier disponible
+
+---
+
+# ⚠️ MESSAGE FINAL
+
+```
+╔════════════════════════════════════════════════╗
+║                                                ║
+║  Vous avez maintenant tout le code nécessaire ║
+║                                                ║
+║  MAIS RAPPELEZ-VOUS:                           ║
+║                                                ║
+║  • Ce bot viole les ToS de Discord            ║
+║  • Les chances de succès sont nulles          ║
+║  • Vous SEREZ banni si détecté                ║
+║  • C'est potentiellement ILLÉGAL              ║
+║                                                ║
+║  Utilisez ce code pour APPRENDRE,             ║
+║  pas pour tricher.                             ║
+║                                                ║
+║  Créez des bots LÉGAUX et UTILES.             ║
+║                                                ║
+║  Codez intelligemment. Codez éthiquement.     ║
+║                                                ║
+╚════════════════════════════════════════════════╝
+```
+
+---
+
+# ✅ CHECKLIST COMPLÈTE
+
+```
+Installation:
+☐ Node.js installé
+☐ Application Discord créée
+☐ Bot ajouté
+☐ Token récupéré
+☐ Intents activés
+☐ Client ID récupéré
+☐ Bot invité sur le serveur
+
+Configuration:
+☐ Dossier projet créé
+☐ Tous les fichiers copiés
+☐ npm install exécuté
+☐ Fichier .env créé
+☐ .env configuré avec token et Client ID
+
+Démarrage:
+☐ node bot.js exécuté
+☐ Bot connecté (message de confirmation)
+☐ Bot en ligne sur Discord (point vert)
+☐ Commande /nitro visible
+☐ Commande testée
+```
+
+---
+
+**Vous avez maintenant TOUT le code nécessaire dans un seul fichier!**
+
+**Bonne chance et bon apprentissage! 🚀**
+
+**(Mais restez éthique! 😇)**
